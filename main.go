@@ -2,42 +2,34 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"net/http"
-	"net/http/httptest"
+	"net/http/httptrace"
 )
 
 func main() {
-	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, client")
-	}))
+	// Создание нового HTTP-запроса
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
 
-	ts.Start()
-	defer ts.Close()
-
-	client := ts.Client()
-
-	res1, err := client.Get("https://example.com")
-	if err != nil {
-		log.Fatal(err)
+	// Инициализация трассировщика
+	trace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			fmt.Println("Подключение установлено")
+		},
+		GotFirstResponseByte: func() {
+			fmt.Println("Получен первый байт ответа")
+		},
 	}
 
-	r, err := io.ReadAll(res1.Body)
-	res1.Body.Close()
+	// Присоединение трассировщика к контексту
+	ctx := httptrace.WithClientTrace(req.Context(), trace)
+	req = req.WithContext(ctx)
 
-	fmt.Println(string(r))
-
-	res, err := http.Get(ts.URL)
+	// Выполнение запроса
+	_, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Ошибка запроса:", err)
+		return
 	}
 
-	greeting, err := io.ReadAll(res.Body)
-	res.Body.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("%s", greeting)
+	fmt.Println("Запрос выполнен успешно")
 }

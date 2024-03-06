@@ -27,7 +27,7 @@ func main() {
 		}{"Обнаружены доказательства гипотезы РНК-мира"},
 	}
 
-	image := make(chan kandinsky.Image, 0)
+	image := make(chan kandinsky.Image)
 
 	go func() {
 		for {
@@ -66,11 +66,10 @@ func main() {
 			log.Fatal(err)
 		case  <-image:
 			i := <-image
-			f, err := i.ToFile()
+			err := i.SaveJPGTo("name", "./")
 			if err != nil {
 				log.Fatal(err)
 			}
-			defer f.Close()
 
 			log.Println("Image created")
 			break

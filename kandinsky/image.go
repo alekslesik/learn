@@ -45,3 +45,48 @@ func (i *Image) ToFile() (*os.File, error) {
 	return f, nil
 }
 
+// SaveTo save png image with name into path
+func (i *Image) SavePNGTo(name, path string) error {
+	ext := ".png"
+
+	f, err := os.OpenFile(path + name + ext, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data, err := base64.StdEncoding.DecodeString(i.Images[0])
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// SaveTo save jpg image with name into path
+func (i *Image) SaveJPGTo(name, path string) error {
+	ext := ".jpg"
+
+	f, err := os.OpenFile(path + name + ext, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data, err := base64.StdEncoding.DecodeString(i.Images[0])
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

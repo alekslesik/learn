@@ -14,12 +14,25 @@ import (
 )
 
 var (
-	ErrEmptyURL         = errors.New("kandinsky url is not exists in env or in config file")
-	ErrEmptyKey         = errors.New("kandinsky auth key is not exists in env or config file")
-	ErrEmptySecret      = errors.New("kandinsky auth secret is not exists in env or config file")
-	ErrAuth             = errors.New("kandinsky authentication error")
-	ErrStatusNot200     = errors.New("kandinsky status is not 200")
-	ErrTaskNotCompleted = errors.New("the task could not be completed")
+	ErrEmptyURL             = errors.New("kandinsky url is not exists in env or in config file")
+	ErrEmptyKey             = errors.New("kandinsky auth key is not exists in env or config file")
+	ErrEmptySecret          = errors.New("kandinsky auth secret is not exists in env or config file")
+	ErrAuth                 = errors.New("kandinsky authentication error, check your key and secret")
+	ErrStatusNot200         = errors.New("kandinsky status is not 200")
+	ErrTaskNotCompleted     = errors.New("kandinsky the task could not be completed")
+	ErrNotFound             = errors.New("kandinsky resource not found")
+	ErrUnauthorized         = errors.New("kandinsky authentication error, check your key and secret")
+	ErrInternalServerError  = errors.New("kandinsky server error")
+	ErrUnsupportedMediaType = errors.New("kandinsky is not support format")
+	ErrBadRequest           = errors.New("kandinsky wrong request parameters or prompt too long ")
+)
+
+const (
+	StatusBadRequest           = 400
+	StatusUnauthorized         = 401
+	StatusNotFound             = 404
+	StatusInternalServerError  = 500
+	StatusUnsupportedMediaType = 415
 )
 
 const (
@@ -170,57 +183,41 @@ func (k *Kandinsky) SetModel(url string) error {
 	if err != nil {
 		return err
 	}
-
 	// create auth header
 	req.Header.Add("X-Key", "Key "+k.key)
 	req.Header.Add("X-Secret", "Secret "+k.secret)
 
 	// create client
 	client := http.Client{}
-
 	// Do request to Kandinsky API
 	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
-
 	defer res.Body.Close()
 
 	// check status code from received from API
-	if res.StatusCode != http.StatusOK {
-		return ErrStatusNot200
-	}
-
-	dec := json.NewDecoder(res.Body)
-
-	// read open bracket
-	_, err = dec.Token()
+	err = checkStatusCode(res.StatusCode)
 	if err != nil {
 		return err
 	}
 
-	var m Model
-
-	// while the array contains values
-	for dec.More() {
-		// decode an array value (Message)
-		err := dec.Decode(&m)
-		if err != nil {
-			return err
-		}
+	// unmarshal response
+	m := []Model{}
+	b, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
 	}
-
-	// read closing bracket
-	_, err = dec.Token()
+	err = json.Unmarshal(b, &m)
 	if err != nil {
 		return err
 	}
 
-	if m.Id == 0 {
+	if m[0].Id == 0 {
 		return ErrAuth
 	}
 
-	k.model = m
+	k.model = m[0]
 
 	return nil
 }
@@ -286,7 +283,6 @@ func (k *Kandinsky) GetImageUUID(url string, params Params) (UUID, error) {
 	return u, nil
 }
 
-//
 func (k *Kandinsky) Check(url string, u UUID) (Image, error) {
 	image := Image{}
 
@@ -311,8 +307,9 @@ func (k *Kandinsky) Check(url string, u UUID) (Image, error) {
 		}
 
 		// check status code from received from API
-		if res.StatusCode != http.StatusOK {
-			return image, ErrStatusNot200
+		err = checkStatusCode(res.StatusCode)
+		if err != nil {
+			return image, err
 		}
 
 		b, err := io.ReadAll(res.Body)
@@ -332,5 +329,23 @@ func (k *Kandinsky) Check(url string, u UUID) (Image, error) {
 		}
 
 		time.Sleep(time.Second * 10)
+	}
+}
+
+// checkStatusCode check response code from kandinsky
+func checkStatusCode(code int) error {
+	switch code {
+	case StatusBadRequest:
+		return ErrBadRequest
+	case StatusUnauthorized:
+		return ErrUnauthorized
+	case StatusNotFound:
+		return ErrNotFound
+	case StatusInternalServerError:
+		return ErrInternalServerError
+	case StatusUnsupportedMediaType:
+		return ErrUnsupportedMediaType
+	default:
+		return nil
 	}
 }

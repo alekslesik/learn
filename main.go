@@ -12,20 +12,8 @@ import (
 // F9C4980BC3166E19C9A42607358B8DA6
 
 func main() {
-	URLmodel := "https://api-key.fusionbrain.ai/key/api/v1/models"
-	URLUUID := "https://api-key.fusionbrain.ai/key/api/v1/text2image/run"
 	key := "FFDB0757E5E5A2FF2D7A297CE95BDA2D"
 	secret := "F9C4980BC3166E19C9A42607358B8DA6"
-
-	k, err := kandinsky.New(key, secret)
-	if err != nil {
-		log.Fatal("create new Kandinsky error > ", err)
-	}
-
-	err = k.SetModel(URLmodel)
-	if err != nil {
-		log.Fatal("set model error > ", err)
-	}
 
 	p := kandinsky.Params{
 		Type:           "GENERATE",
@@ -39,11 +27,24 @@ func main() {
 		}{"Северная Пальмира"},
 	}
 
-	u, err := k.GetUUID(URLUUID, p)
-	if err != nil {
-		log.Fatal("get UUID error > ", err)
+	i, err := kandinsky.GetImage(key, secret, p)
+
+	select {
+	case <- err:
+		log.Fatal(<- err)
+	case <- i:
+		image := <- i
+		fmt.Println(image.ToByte())
 	}
 
-	fmt.Println(u.ID)
+	// select {
+	// case image := <- i:
+	// 	b, err := image.ToByte()
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+
+	// 	fmt.Println(b)
+	// }
 
 }

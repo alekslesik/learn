@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"net/http"
 
 	"githhub.com/alekslesik/learn/kandinsky"
 )
@@ -17,34 +17,64 @@ func main() {
 
 	p := kandinsky.Params{
 		Type:           "GENERATE",
-		Style:          "string",
+		Style:          "UHD",
 		Width:          1024,
 		Height:         1024,
 		NumImages:      1,
 		NegativePrompt: "",
 		GenerateParams: struct {
 			Query string "json:\"query\""
-		}{"Северная Пальмира"},
+		}{"Обнаружены доказательства гипотезы РНК-мира"},
 	}
 
-	i, err := kandinsky.GetImage(key, secret, p)
+	image := make(chan kandinsky.Image, 0)
 
-	select {
-	case <- err:
-		log.Fatal(<- err)
-	case <- i:
-		image := <- i
-		fmt.Println(image.ToByte())
+	go func() {
+		for {
+			i, err := kandinsky.GetImage(key, secret, p)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			image <- i
+		}
+	}()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hello"))
+	})
+
+	errCh := make(chan error)
+
+	go func() {
+		err := http.ListenAndServe("localhost:6666", mux)
+		if err != nil {
+			errCh <- err
+		}
+	}()
+
+	log.Println("start on http://localhost:6666")
+
+	for {
+		select {
+		case err := <-errCh:
+			if err == kandinsky.ErrTaskNotCompleted {
+				log.Println(err)
+				continue
+			}
+			log.Fatal(err)
+		case  <-image:
+			i := <-image
+			f, err := i.ToFile()
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer f.Close()
+
+			log.Println("Image created")
+			break
+		}
 	}
-
-	// select {
-	// case image := <- i:
-	// 	b, err := image.ToByte()
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	fmt.Println(b)
-	// }
 
 }

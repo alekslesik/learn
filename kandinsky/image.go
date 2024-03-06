@@ -14,7 +14,9 @@ type Image struct {
 
 // ToByte is convert Image to []byte
 func (i *Image) ToByte() ([]byte, error) {
-	var b []byte
+	l := len(i.Images[0])
+	var b = make([]byte, l)
+
 	_, err := base64.StdEncoding.Decode(b, []byte(i.Images[0]))
 	if err != nil {
 		return nil, err
@@ -29,7 +31,6 @@ func (i *Image) ToFile() (*os.File, error) {
 	if err != nil {
 		return f, err
 	}
-	defer f.Close()
 
 	data, err := base64.StdEncoding.DecodeString(i.Images[0])
 	if err != nil {
